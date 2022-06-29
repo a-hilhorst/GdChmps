@@ -1,22 +1,75 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.transforms as transforms
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import PySimpleGUI as Sg
 import os
 
-ptListIn = os.getcwd() + '\IN_2_4_2.TXT'
-ptListOut = os.getcwd() + '\IN_2_4_2_OUT.TXT'
+ptListIn = os.getcwd() + '/IN_2_4_2.TXT'
+ptListOut = os.getcwd() + '/IN_2_4_2_OUT.TXT'
 
-layout = [
+
+def draw_figure(canvas, figure):
+    figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
+    figure_canvas_agg.draw()
+    figure_canvas_agg.get_tk_widget().pack(side='top', fill='both', expand=1)
+    return figure_canvas_agg
+
+
+def overlap(imag, iv, rotd):
+    magx = 114/imag
+    magy = 85.7/imag
+
+    iv_rot = [iv[0]*np.cos(rotd*np.pi/180)-iv[1]*np.sin(rotd*np.pi/180),
+              iv[0]*np.sin(rotd*np.pi/180)+iv[1]*np.cos(rotd*np.pi/180)]
+
+    si = np.min([np.abs((iv_rot[0]+magx)*(iv_rot[1]-magy)), np.abs((iv_rot[0]-magx)*(iv_rot[1]+magy))])
+    su = magx*magy
+    ol = 100*si/su  # overlap in %
+    return ol
+
+
+column1 = [
     [Sg.Text('# images of each series: ',
              tooltip='HELLO',
-             size=(20, 1)), Sg.Input(key='n_im')],
+             size=(20, 1)), Sg.Input(key='n_im', default_text='10,2x5,5')],
     [Sg.Text('Magnification of each series: ', tooltip='HELLO',
-             size=(20, 1)), Sg.Input(key='mag')],
-    [Sg.Submit('T-E-S-T'), Sg.Exit()]
+             size=(20, 1)), Sg.Input(key='mag', default_text='10,20,20')],
+    [Sg.Text('Scan rot :', tooltip='HELLO',
+             size=(20, 1)), Sg.Input(key='rot', default_text='0')],
+    [Sg.Submit('Submit')],
+    [Sg.Text('Overlap :\n==============')],
+    [Sg.Text('',
+             size=(20, 1), key='output')],
+    [Sg.Exit()]
+]
+column2 = [
+    [Sg.Canvas(key='figCanvas')]
+]
+layout = [
+    [Sg.Column(column1),
+     Sg.VSeparator(),
+     Sg.Column(column2)]
 ]
 
-window = Sg.Window('Test', layout)
+fig = plt.figure()
+ax1 = fig.gca()
+
+ax1.plot(65, 65, 'kx')
+c1 = plt.Circle((65, 65), 25, color='k', fill=False)
+c2 = plt.Circle((65, 65), 40, color='k', fill=False)
+ax1.add_artist(c1)
+ax1.add_artist(c2)
+
+ax1.set_xlim([25, 105])
+ax1.set_ylim([25, 105])
+ax1.set_aspect('equal')
+ax1.set_xlabel('X [mm]')
+ax1.set_ylabel('Y [mm]')
+
+window = Sg.Window('Test', layout, finalize=True, resizable=True, element_justification="left")
+fig_c_a = draw_figure(window['figCanvas'].TKCanvas, fig)
 
 while True:
     event, values = window.read()
@@ -25,12 +78,17 @@ while True:
 
     n_im = []
     mag = []
+    rot = 0
     while True:
+        fig_c_a.get_tk_widget().forget()
+        plt.clf()
+
         try:
             n_im = values['n_im'].split(',')
             n_im = [i.split('x') for i in n_im]
             n_im = [[int(i) for i in j] for j in n_im]
             mag = [float(i) for i in values['mag'].split(',')]
+            rot = values['rot']
         except ValueError:
             Sg.Popup('Error', 'Please enter # of images as integers separated by a comma\n'
                               'Please enter magnification as doubles separated by a comma')
@@ -60,7 +118,6 @@ while True:
     totim = np.sum([np.prod(j) for j in n_im])
 
     if len(v_x) == 2*lnim:
-        print('OK')
         fig = plt.figure()
         ax1 = fig.gca()
 
@@ -95,9 +152,22 @@ while True:
                     lv_x_o2 = len(v_x_o)
                     ax1.plot(1000 * v_x_o[lv_x_o1:lv_x_o2], 1000 * v_y_o[lv_x_o1:lv_x_o2], 'x-')
 
+                    t_r = transforms.Affine2D().rotate_deg(int(rot))
                     for k in range(lv_x_o1, lv_x_o2):
-                        rect = patches.Rectangle((1000 * v_x_o[k], 1000 * v_y_o[k]), 114/mag[i], 85.7/mag[i], linewidth=1,
-                                                 edgecolor='k', facecolor='none', alpha=0.5)
+                        rect = patches.Rectangle((0, 0), 114 / mag[i], 85.7 / mag[i],
+                                                 linewidth=1,
+                                                 edgecolor='k',
+                                                 facecolor='none',
+                                                 alpha=0.5)
+
+                        vC_x = 114 / mag[i] / 2
+                        vC_y = 85.7 / mag[i] / 2
+                        vC_x_p = vC_x * np.cos(int(rot) * np.pi / 180) - vC_y * np.sin(int(rot) * np.pi / 180)
+                        vC_y_p = vC_x * np.sin(int(rot) * np.pi / 180) + vC_y * np.cos(int(rot) * np.pi / 180)
+                        t_t = transforms.Affine2D().translate(1000 * v_x_o[k] - vC_x_p,
+                                                              1000 * v_y_o[k] - vC_y_p)
+                        rect.set_transform(t_r + t_t + ax1.transData)
+
                         ax1.add_patch(rect)
 
                 elif len(n_im[i]) == 2:
@@ -127,21 +197,42 @@ while True:
 
                     lv_x_o2 = len(v_x_o)
                     ax1.plot(1000 * v_x_o[lv_x_o1:lv_x_o2], 1000 * v_y_o[lv_x_o1:lv_x_o2], 'x-')
+
+                    t_r = transforms.Affine2D().rotate_deg(int(rot))
+                    for k in range(lv_x_o1, lv_x_o2):
+                        rect = patches.Rectangle((0, 0), 114 / mag[i], 85.7 / mag[i],
+                                                 linewidth=1,
+                                                 edgecolor='k',
+                                                 facecolor='none',
+                                                 alpha=0.5)
+
+                        vC_x = 114 / mag[i] / 2
+                        vC_y = 85.7 / mag[i] / 2
+                        vC_x_p = vC_x * np.cos(int(rot) * np.pi / 180) - vC_y * np.sin(int(rot) * np.pi / 180)
+                        vC_y_p = vC_x * np.sin(int(rot) * np.pi / 180) + vC_y * np.cos(int(rot) * np.pi / 180)
+                        t_t = transforms.Affine2D().translate(1000 * v_x_o[k] - vC_x_p,
+                                                              1000 * v_y_o[k] - vC_y_p)
+                        rect.set_transform(t_r + t_t + ax1.transData)
+
+                        ax1.add_patch(rect)
+
                     c = c + 4
                 else:
                     Sg.Popup('not 1x1')
 
+        # plt.show(block=False)
         ax1.set_xlim([25, 105])
         ax1.set_ylim([25, 105])
         ax1.set_aspect('equal')
         ax1.set_xlabel('X [mm]')
         ax1.set_ylabel('Y [mm]')
 
-        plt.show(block=False)
+        fig_c_a = draw_figure(window['figCanvas'].TKCanvas, fig)
 
     else:
         Sg.Popup(str(len(v_x)) + ' ' + str(2*lnim))
 
-    if event in 'T-E-S-T':
-        Sg.Popup(n_im)
+    if event in 'Submit':
+        # Sg.Popup(n_im)
+        window['output'].update(str(len(v_x_o)))
 
