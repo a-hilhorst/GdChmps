@@ -20,12 +20,16 @@ def draw_figure(canvas, figure):
 def overlap(imag, iv, rotd):
     magx = 114/imag
     magy = 85.7/imag
+    su = magx * magy
 
     iv_rot = [iv[0]*np.cos(rotd*np.pi/180)-iv[1]*np.sin(rotd*np.pi/180),
               iv[0]*np.sin(rotd*np.pi/180)+iv[1]*np.cos(rotd*np.pi/180)]
 
-    si = np.min([np.abs((iv_rot[0]+magx)*(iv_rot[1]-magy)), np.abs((iv_rot[0]-magx)*(iv_rot[1]+magy))])
-    su = magx*magy
+    if np.max([np.abs((iv_rot[0]+magx)*(iv_rot[1]-magy)), np.abs((iv_rot[0]-magx)*(iv_rot[1]+magy))]) > 2*su:
+        si = 0
+    else:
+        si = np.min([np.abs((iv_rot[0]+magx)*(iv_rot[1]-magy)), np.abs((iv_rot[0]-magx)*(iv_rot[1]+magy))])
+
     ol = 100*si/su  # overlap in %
     return ol
 
@@ -138,6 +142,8 @@ while True:
             v_y_o = []
             v_z_o = []
             v_wd_o = []
+
+            l_ol = []
             for i in range(0, len(n_im)):
                 if len(n_im[i]) == 1:
                     # line A to B
@@ -170,6 +176,11 @@ while True:
 
                         ax1.add_patch(rect)
 
+                    l_ol.append(overlap(mag[i],
+                                        [1000 * (v_x_o[lv_x_o1 + 1]-v_x_o[lv_x_o1]),
+                                         1000 * (v_y_o[lv_x_o1 + 1] - v_y_o[lv_x_o1])],
+                                        int(rot)))
+
                 elif len(n_im[i]) == 2:
                     # trapezoid delimited by A B C D
                     lv_x_o1 = len(v_x_o)
@@ -194,6 +205,7 @@ while True:
                             v_y_o = np.concatenate((v_y_o, np.linspace(BC_y[j], AD_y[j], n_im[i][0])), axis=0)
                             v_z_o = np.concatenate((v_z_o, np.linspace(BC_z[j], AD_z[j], n_im[i][0])), axis=0)
                             v_wd_o = np.concatenate((v_wd_o, np.linspace(BC_wd[j], AD_wd[j], n_im[i][0])), axis=0)
+                    c = c + 4
 
                     lv_x_o2 = len(v_x_o)
                     ax1.plot(1000 * v_x_o[lv_x_o1:lv_x_o2], 1000 * v_y_o[lv_x_o1:lv_x_o2], 'x-')
@@ -216,7 +228,67 @@ while True:
 
                         ax1.add_patch(rect)
 
-                    c = c + 4
+                    l_olx = overlap(mag[i],
+                                    [1000 * (v_x_o[lv_x_o1 + 1] - v_x_o[lv_x_o1]),
+                                     1000 * (v_y_o[lv_x_o1 + 1] - v_y_o[lv_x_o1])],
+                                    int(rot))
+                    l_oly = overlap(mag[i],
+                                    [1000 * (v_x_o[lv_x_o1 + 1] - v_x_o[lv_x_o1 + n_im[i][0]]),
+                                     1000 * (v_y_o[lv_x_o1 + 1] - v_y_o[lv_x_o1 + n_im[i][0]])],
+                                    int(rot))
+                    l_ol.append([l_olx, l_oly])
+
+                    #  r
+                    rect = patches.Rectangle((0, 0), 114 / mag[i], 85.7 / mag[i],
+                                             linewidth=2,
+                                             edgecolor='r',
+                                             facecolor='none',
+                                             alpha=1)
+
+                    vC_x = 114 / mag[i] / 2
+                    vC_y = 85.7 / mag[i] / 2
+                    vC_x_p = vC_x * np.cos(int(rot) * np.pi / 180) - vC_y * np.sin(int(rot) * np.pi / 180)
+                    vC_y_p = vC_x * np.sin(int(rot) * np.pi / 180) + vC_y * np.cos(int(rot) * np.pi / 180)
+                    t_t = transforms.Affine2D().translate(1000 * v_x_o[lv_x_o1 + n_im[i][0]] - vC_x_p,
+                                                          1000 * v_y_o[lv_x_o1 + n_im[i][0]] - vC_y_p)
+                    rect.set_transform(t_r + t_t + ax1.transData)
+
+                    ax1.add_patch(rect)
+
+                    #  b
+                    rect = patches.Rectangle((0, 0), 114 / mag[i], 85.7 / mag[i],
+                                             linewidth=2,
+                                             edgecolor='b',
+                                             facecolor='none',
+                                             alpha=1)
+
+                    vC_x = 114 / mag[i] / 2
+                    vC_y = 85.7 / mag[i] / 2
+                    vC_x_p = vC_x * np.cos(int(rot) * np.pi / 180) - vC_y * np.sin(int(rot) * np.pi / 180)
+                    vC_y_p = vC_x * np.sin(int(rot) * np.pi / 180) + vC_y * np.cos(int(rot) * np.pi / 180)
+                    t_t = transforms.Affine2D().translate(1000 * v_x_o[lv_x_o1] - vC_x_p,
+                                                          1000 * v_y_o[lv_x_o1] - vC_y_p)
+                    rect.set_transform(t_r + t_t + ax1.transData)
+
+                    ax1.add_patch(rect)
+
+                    #  g
+                    rect = patches.Rectangle((0, 0), 114 / mag[i], 85.7 / mag[i],
+                                             linewidth=2,
+                                             edgecolor='g',
+                                             facecolor='none',
+                                             alpha=1)
+
+                    vC_x = 114 / mag[i] / 2
+                    vC_y = 85.7 / mag[i] / 2
+                    vC_x_p = vC_x * np.cos(int(rot) * np.pi / 180) - vC_y * np.sin(int(rot) * np.pi / 180)
+                    vC_y_p = vC_x * np.sin(int(rot) * np.pi / 180) + vC_y * np.cos(int(rot) * np.pi / 180)
+                    t_t = transforms.Affine2D().translate(1000 * v_x_o[lv_x_o1 + 1] - vC_x_p,
+                                                          1000 * v_y_o[lv_x_o1 + 1] - vC_y_p)
+                    rect.set_transform(t_r + t_t + ax1.transData)
+
+                    ax1.add_patch(rect)
+
                 else:
                     Sg.Popup('not 1x1')
 
@@ -235,4 +307,5 @@ while True:
     if event in 'Submit':
         # Sg.Popup(n_im)
         window['output'].update(str(len(v_x_o)))
+        Sg.Popup(l_ol)
 
