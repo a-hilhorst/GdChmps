@@ -17,18 +17,29 @@ def draw_figure(canvas, figure):
     return figure_canvas_agg
 
 
+# vC_x = 114 / mag[i] / 2
+# vC_y = 85.7 / mag[i] / 2
+# vC_x_p = vC_x * np.cos(int(rot) * np.pi / 180) - vC_y * np.sin(int(rot) * np.pi / 180)
+# vC_y_p = vC_x * np.sin(int(rot) * np.pi / 180) + vC_y * np.cos(int(rot) * np.pi / 180)
+# t_t = transforms.Affine2D().translate(1000 * v_x_o[lv_x_o1 + 2*n_im[i][0]-1] - vC_x_p,
+#                                       1000 * v_y_o[lv_x_o1 + 2*n_im[i][0]-1] - vC_y_p)
+
+
 def overlap(imag, iv, rotd):
     magx = 114/imag
     magy = 85.7/imag
     su = magx * magy
 
-    iv_rot = [iv[0]*np.cos(rotd*np.pi/180)-iv[1]*np.sin(rotd*np.pi/180),
-              iv[0]*np.sin(rotd*np.pi/180)+iv[1]*np.cos(rotd*np.pi/180)]
+    iv_rot = [iv[0] * np.cos(rotd * np.pi / 180) - iv[1] * np.sin(rotd * np.pi / 180),
+              iv[0] * np.sin(rotd * np.pi / 180) + iv[1] * np.cos(rotd * np.pi / 180)]
 
-    if np.max([np.abs((iv_rot[0]+magx)*(iv_rot[1]-magy)), np.abs((iv_rot[0]-magx)*(iv_rot[1]+magy))]) > 2*su:
+    if (np.abs(iv_rot[0]) > magx) | (np.abs(iv_rot[1]) > magy):
         si = 0
     else:
-        si = np.min([np.abs((iv_rot[0]+magx)*(iv_rot[1]-magy)), np.abs((iv_rot[0]-magx)*(iv_rot[1]+magy))])
+        si = np.min([np.abs((iv_rot[0] - magx) * (iv_rot[1] + magy)),
+                     np.abs((iv_rot[0] + magx) * (iv_rot[1] - magy)),
+                     np.abs((iv_rot[0] - magx) * (iv_rot[1] - magy)),
+                     np.abs((iv_rot[0] + magx) * (iv_rot[1] + magy))])
 
     ol = 100*si/su  # overlap in %
     return ol
@@ -177,7 +188,7 @@ while True:
                         ax1.add_patch(rect)
 
                     l_ol.append(overlap(mag[i],
-                                        [1000 * (v_x_o[lv_x_o1 + 1]-v_x_o[lv_x_o1]),
+                                        [1000 * (v_x_o[lv_x_o1 + 1] - v_x_o[lv_x_o1]),
                                          1000 * (v_y_o[lv_x_o1 + 1] - v_y_o[lv_x_o1])],
                                         int(rot)))
 
@@ -229,12 +240,12 @@ while True:
                         ax1.add_patch(rect)
 
                     l_olx = overlap(mag[i],
-                                    [1000 * (v_x_o[lv_x_o1 + 1] - v_x_o[lv_x_o1]),
-                                     1000 * (v_y_o[lv_x_o1 + 1] - v_y_o[lv_x_o1])],
+                                    [1000 * (v_x_o[lv_x_o1] - v_x_o[lv_x_o1 + 2 * n_im[i][0] - 1]),
+                                     1000 * (v_y_o[lv_x_o1] - v_y_o[lv_x_o1 + 2 * n_im[i][0] - 1])],
                                     int(rot))
                     l_oly = overlap(mag[i],
-                                    [1000 * (v_x_o[lv_x_o1 + 1] - v_x_o[lv_x_o1 + n_im[i][0]]),
-                                     1000 * (v_y_o[lv_x_o1 + 1] - v_y_o[lv_x_o1 + n_im[i][0]])],
+                                    [1000 * (v_x_o[lv_x_o1] - v_x_o[lv_x_o1 + 1]),
+                                     1000 * (v_y_o[lv_x_o1] - v_y_o[lv_x_o1 + 1])],
                                     int(rot))
                     l_ol.append([l_olx, l_oly])
 
@@ -249,8 +260,8 @@ while True:
                     vC_y = 85.7 / mag[i] / 2
                     vC_x_p = vC_x * np.cos(int(rot) * np.pi / 180) - vC_y * np.sin(int(rot) * np.pi / 180)
                     vC_y_p = vC_x * np.sin(int(rot) * np.pi / 180) + vC_y * np.cos(int(rot) * np.pi / 180)
-                    t_t = transforms.Affine2D().translate(1000 * v_x_o[lv_x_o1 + n_im[i][0]] - vC_x_p,
-                                                          1000 * v_y_o[lv_x_o1 + n_im[i][0]] - vC_y_p)
+                    t_t = transforms.Affine2D().translate(1000 * v_x_o[lv_x_o1 + 2*n_im[i][0]-1] - vC_x_p,
+                                                          1000 * v_y_o[lv_x_o1 + 2*n_im[i][0]-1] - vC_y_p)
                     rect.set_transform(t_r + t_t + ax1.transData)
 
                     ax1.add_patch(rect)

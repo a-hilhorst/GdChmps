@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.transforms as transforms
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import PySimpleGUI as Sg
+import PySimpleGUI as sg
 
 
 def draw_figure(canvas, figure):
@@ -18,55 +18,126 @@ def overlap(imag, iv, rotd):
     magy = 85.7/imag
     su = magx * magy
 
-    iv_rot = [iv[0]*np.cos(rotd*np.pi/180)-iv[1]*np.sin(rotd*np.pi/180),
-              iv[0]*np.sin(rotd*np.pi/180)+iv[1]*np.cos(rotd*np.pi/180)]
+    iv_rot = [iv[0] * np.cos(rotd * np.pi / 180) - iv[1] * np.sin(rotd * np.pi / 180),
+              iv[0] * np.sin(rotd * np.pi / 180) + iv[1] * np.cos(rotd * np.pi / 180)]
 
-    if np.max([np.abs((iv_rot[0]+magx)*(iv_rot[1]-magy)), np.abs((iv_rot[0]-magx)*(iv_rot[1]+magy))]) > 2*su:
+    if (np.abs(iv_rot[0]) > magx) | (np.abs(iv_rot[1]) > magy):
         si = 0
     else:
-        si = np.min([np.abs((iv_rot[0]+magx)*(iv_rot[1]-magy)), np.abs((iv_rot[0]-magx)*(iv_rot[1]+magy))])
+        si = np.min([np.abs((iv_rot[0] - magx) * (iv_rot[1] + magy)),
+                     np.abs((iv_rot[0] + magx) * (iv_rot[1] - magy)),
+                     np.abs((iv_rot[0] - magx) * (iv_rot[1] - magy)),
+                     np.abs((iv_rot[0] + magx) * (iv_rot[1] + magy))])
 
-    ol = 100*si/su  # overlap in %
+    ol = 100 * si / su  # overlap in %
     return ol
 
 
+def draw_rectangle(vxo, vyo, ind1, ind2, rotd, imag, ax):
+    t_r = transforms.Affine2D().rotate_deg(rotd)
+    for k in range(ind1, ind2):
+        rect = patches.Rectangle((0, 0), 114 / imag, 85.7 / imag,
+                                 linewidth=1,
+                                 edgecolor='k',
+                                 facecolor='none',
+                                 alpha=0.5)
+
+        vcx = 114 / imag / 2
+        vcy = 85.7 / imag / 2
+        vcx_p = vcx * np.cos(rotd * np.pi / 180) - vcy * np.sin(rotd * np.pi / 180)
+        vcy_p = vcx * np.sin(rotd * np.pi / 180) + vcy * np.cos(rotd * np.pi / 180)
+        t_t = transforms.Affine2D().translate(1000 * vxo[k] - vcx_p,
+                                              1000 * vyo[k] - vcy_p)
+        rect.set_transform(t_r + t_t + ax.transData)
+
+        ax.add_patch(rect)
+
+
+def canvas_layout(nc):
+    clayout = [[sg.Canvas(key='olCanvas'+str(nc))]]
+    return clayout
+
+
+def open_ol_window(ntabs):
+    layout2 = [
+        [sg.TabGroup([[sg.Tab('S' + str(i + 1).zfill(3), canvas_layout(i)) for i in range(0, ntabs)]]),
+         sg.VSeparator(),
+         sg.Column([[sg.Text('Overlap :\n==============')],
+                    [sg.Text('', key='output')]])]
+    ]
+
+    windw = sg.Window('Overlap information', layout2, finalize=True, resizable=True,
+                      element_justification="left")
+    return windw
+
+
+# column1 = [
+#     [sg.Text('Set beam shift to 0 before taking initial and end points.')],
+#     [sg.Text('Tilt and Rotation must not change between the initial and final points of a serie.')],
+#     [sg.Text('Initial points:', tooltip='Point Lists are saved in C:\\ProgramData\\Carl Zeiss\\SmartSEM\\User\\sem\n'
+#                                         'A line scan must be defined by two consecutive points\n'
+#                                         'A map must be defined by 4 consecutive points',
+#              size=(20, 1))],
+#     [sg.Input(key='ptInit', size=(60, 1)), sg.FileBrowse(target='ptInit', size=(6, 1),
+#                                                          initial_folder='C:/ProgramData/Carl Zeiss/SmartSEM/User/sem')],
+#     [sg.Text('# images of each series: ',
+#              tooltip='Enter the number of images of each series as an integer separated by a comma\n'
+#                      'e.g. 2,3,4 for 3 series of 2, 3, and 4 images respectively.\n'
+#                      'For maps, enter m, the # of images in the x-axis, and n, the # of images in the y-axis, as mxn',
+#              size=(20, 1)), sg.Input(key='n_im')],
+#     [sg.Text('Magnification of each series: ', tooltip='Enter the magnification of each series separated by a comma\n'
+#                                                        'e.g. 1000,3000,2000 for 3 series with mag = 1k, 3k, and 2k '
+#                                                        'respectively.',
+#              size=(20, 1)), sg.Input(key='mag')],
+#     [sg.Text('Scan rot :', tooltip='Enter the scan rotation value',
+#              size=(20, 1)), sg.Input(key='rot', default_text='0')],
+#     [sg.Checkbox('Display overlap information', default=False, key='ol_cb')],
+#     [sg.Text('Save as: ', size=(20, 1))],
+#     [sg.Input(key='saveName', size=(58, 1)), sg.SaveAs(target='saveName', size=(8, 1))],
+#     [sg.Text('In Stage Points List > On Goto, check Move XY Only.')],
+#     [sg.Submit('Generate point list'), sg.Exit()]
+# ]
 column1 = [
-    [Sg.Text('Set beam shift to 0 before taking initial and end points.')],
-    [Sg.Text('Tilt and Rotation must not change between the initial and final points of a serie.')],
-    [Sg.Text('Initial points:', tooltip='Point Lists are saved in C:\\ProgramData\\Carl Zeiss\\SmartSEM\\User\\sem\n'
+    [sg.Text('Set beam shift to 0 before taking initial and end points.')],
+    [sg.Text('Tilt and Rotation must not change between the initial and final points of a serie.')],
+    [sg.Text('Initial points:', tooltip='Point Lists are saved in C:\\ProgramData\\Carl Zeiss\\SmartSEM\\User\\sem\n'
                                         'A line scan must be defined by two consecutive points\n'
                                         'A map must be defined by 4 consecutive points',
              size=(20, 1))],
-    [Sg.Input(key='ptInit', size=(60, 1)), Sg.FileBrowse(target='ptInit', size=(6, 1),
-                                                         initial_folder='C:/ProgramData/Carl Zeiss/SmartSEM/User/sem')],
-    [Sg.Text('# images of each series: ',
+    [sg.Input(key='ptInit', size=(60, 1)),
+     sg.FileBrowse(target='ptInit',
+                   size=(6, 1),
+                   initial_folder='D:/_Ressources/SEM/GdChamps_v1.x/py/IN_2_4_2.TXT')],
+    [sg.Text('# images of each series: ',
              tooltip='Enter the number of images of each series as an integer separated by a comma\n'
                      'e.g. 2,3,4 for 3 series of 2, 3, and 4 images respectively.\n'
                      'For maps, enter m, the # of images in the x-axis, and n, the # of images in the y-axis, as mxn',
-             size=(20, 1)), Sg.Input(key='n_im')],
-    [Sg.Text('Magnification of each series: ', tooltip='Enter the magnification of each series separated by a comma\n'
+             size=(20, 1)), sg.Input(key='n_im',
+                                     default_text='5,5x4,8')],
+    [sg.Text('Magnification of each series: ', tooltip='Enter the magnification of each series separated by a comma\n'
                                                        'e.g. 1000,3000,2000 for 3 series with mag = 1k, 3k, and 2k '
                                                        'respectively.',
-             size=(20, 1)), Sg.Input(key='mag')],
-    [Sg.Text('Scan rot :', tooltip='Enter the scan rotation value',
-             size=(20, 1)), Sg.Input(key='rot', default_text='0')],
-    [Sg.Text('Save as: ', size=(20, 1))],
-    [Sg.Input(key='saveName', size=(58, 1)), Sg.SaveAs(target='saveName', size=(8, 1))],
-    [Sg.Text('In Stage Points List > On Goto, check Move XY Only.')],
-    [Sg.Submit('Generate point list'), Sg.Exit()]
+             size=(20, 1)), sg.Input(key='mag', default_text='10,10,10')],
+    [sg.Text('Scan rot :', tooltip='Enter the scan rotation value',
+             size=(20, 1)), sg.Input(key='rot', default_text='60')],
+    [sg.Checkbox('Display overlap information', default=False, key='ol_cb')],
+    [sg.Text('Save as: ', size=(20, 1))],
+    [sg.Input(key='saveName', size=(58, 1)), sg.SaveAs(target='saveName', size=(8, 1))],
+    [sg.Text('In Stage Points List > On Goto, check Move XY Only.')],
+    [sg.Submit('Generate point list'), sg.Exit()]
 ]
 column2 = [
-    [Sg.Canvas(key='figCanvas')],
-    [Sg.Text('Overlap :\n==============')],
-    [Sg.Text('', key='output')],
-    [Sg.Text('Estimated time :\n==============')],
-    [Sg.Text('',
+    [sg.Canvas(key='figCanvas')],
+    # [sg.Text('Overlap :\n==============')],
+    # [sg.Text('', key='output')],
+    [sg.Text('Estimated time :\n==============')],
+    [sg.Text('',
              size=(40, 1), key='time')]
 ]
 layout = [
-    [Sg.Column(column1),
-     Sg.VSeparator(),
-     Sg.Column(column2)]
+    [sg.Column(column1),
+     sg.VSeparator(),
+     sg.Column(column2)]
 ]
 
 fig = plt.figure()
@@ -84,7 +155,7 @@ ax1.set_aspect('equal')
 ax1.set_xlabel('X [mm]')
 ax1.set_ylabel('Y [mm]')
 
-window = Sg.Window('Point List Generator', layout, finalize=True, resizable=True, element_justification="left")
+window = sg.Window('Point List Generator', layout, finalize=True, resizable=True, element_justification="left")
 fig_c_a = draw_figure(window['figCanvas'].TKCanvas, fig)
 
 while True:
@@ -109,7 +180,7 @@ while True:
             mag = [float(i) for i in values['mag'].split(',')]
             rot = values['rot']
         except ValueError:
-            Sg.Popup('Error', 'Please enter # of images as integers (or in the form of mxn) separated by a comma\n'
+            sg.Popup('Error', 'Please enter # of images as integers (or in the form of mxn) separated by a comma\n'
                               'Please enter magnification as doubles separated by a comma')
             event, values = window.read()
             continue
@@ -160,6 +231,8 @@ while True:
                 v_wd_o = []
 
                 l_ol = []
+                ol_fig = []
+                ol_ax = []
                 for i in range(0, len(n_im)):
                     if len(n_im[i]) == 1:
                         # line A to B
@@ -173,24 +246,6 @@ while True:
 
                         lv_x_o2 = len(v_x_o)
                         ax1.plot(1000 * v_x_o[lv_x_o1:lv_x_o2], 1000 * v_y_o[lv_x_o1:lv_x_o2], 'x-')
-
-                        # t_r = transforms.Affine2D().rotate_deg(int(rot))
-                        # for k in range(lv_x_o1, lv_x_o2):
-                        #     rect = patches.Rectangle((0, 0), 114 / mag[i], 85.7 / mag[i],
-                        #                              linewidth=1,
-                        #                              edgecolor='k',
-                        #                              facecolor='none',
-                        #                              alpha=0.5)
-                        #
-                        #     vC_x = 114 / mag[i] / 2
-                        #     vC_y = 85.7 / mag[i] / 2
-                        #     vC_x_p = vC_x * np.cos(int(rot) * np.pi / 180) - vC_y * np.sin(int(rot) * np.pi / 180)
-                        #     vC_y_p = vC_x * np.sin(int(rot) * np.pi / 180) + vC_y * np.cos(int(rot) * np.pi / 180)
-                        #     t_t = transforms.Affine2D().translate(1000 * v_x_o[k] - vC_x_p,
-                        #                                           1000 * v_y_o[k] - vC_y_p)
-                        #     rect.set_transform(t_r + t_t + ax1.transData)
-                        #
-                        #     ax1.add_patch(rect)
 
                         l_ol.append(overlap(mag[i],
                                             [1000 * (v_x_o[lv_x_o1 + 1] - v_x_o[lv_x_o1]),
@@ -226,31 +281,13 @@ while True:
                         lv_x_o2 = len(v_x_o)
                         ax1.plot(1000 * v_x_o[lv_x_o1:lv_x_o2], 1000 * v_y_o[lv_x_o1:lv_x_o2], 'x-')
 
-                        # t_r = transforms.Affine2D().rotate_deg(int(rot))
-                        # for k in range(lv_x_o1, lv_x_o2):
-                        #     rect = patches.Rectangle((0, 0), 114 / mag[i], 85.7 / mag[i],
-                        #                              linewidth=1,
-                        #                              edgecolor='k',
-                        #                              facecolor='none',
-                        #                              alpha=0.5)
-                        #
-                        #     vC_x = 114 / mag[i] / 2
-                        #     vC_y = 85.7 / mag[i] / 2
-                        #     vC_x_p = vC_x * np.cos(int(rot) * np.pi / 180) - vC_y * np.sin(int(rot) * np.pi / 180)
-                        #     vC_y_p = vC_x * np.sin(int(rot) * np.pi / 180) + vC_y * np.cos(int(rot) * np.pi / 180)
-                        #     t_t = transforms.Affine2D().translate(1000 * v_x_o[k] - vC_x_p,
-                        #                                           1000 * v_y_o[k] - vC_y_p)
-                        #     rect.set_transform(t_r + t_t + ax1.transData)
-                        #
-                        #     ax1.add_patch(rect)
-
                         l_olx = overlap(mag[i],
-                                        [1000 * (v_x_o[lv_x_o1 + 1] - v_x_o[lv_x_o1]),
-                                         1000 * (v_y_o[lv_x_o1 + 1] - v_y_o[lv_x_o1])],
+                                        [1000 * (v_x_o[lv_x_o1] - v_x_o[lv_x_o1 + 2*n_im[i][0]-1]),
+                                         1000 * (v_y_o[lv_x_o1] - v_y_o[lv_x_o1 + 2*n_im[i][0]-1])],
                                         int(rot))
                         l_oly = overlap(mag[i],
-                                        [1000 * (v_x_o[lv_x_o1 + 1] - v_x_o[lv_x_o1 + n_im[i][0]]),
-                                         1000 * (v_y_o[lv_x_o1 + 1] - v_y_o[lv_x_o1 + n_im[i][0]])],
+                                        [1000 * (v_x_o[lv_x_o1] - v_x_o[lv_x_o1 + 1]),
+                                         1000 * (v_y_o[lv_x_o1] - v_y_o[lv_x_o1 + 1])],
                                         int(rot))
                         l_ol.append([l_olx, l_oly])
 
@@ -295,20 +332,42 @@ while True:
             ax1.set_aspect('equal')
             ax1.set_xlabel('X [mm]')
             ax1.set_ylabel('Y [mm]')
-            # ax1.invert_xaxis()
 
             fig_c_a = draw_figure(window['figCanvas'].TKCanvas, fig)
 
             if event in 'Generate point list':
-                window['output'].update(str_ol)
                 window['time'].update('{:.2f}'.format(totim*0.5) +
                                       ' | ' + '{:.2f}'.format(totim*2) +
                                       ' minutes if "slow" | "very slow"')
+                if values['ol_cb']:
+                    ol_window = open_ol_window(len(n_im))
+                    ol_window['output'].update(str_ol)
+
+                    cnim = 0
+                    for i in range(0, len(n_im)):
+                        if len(n_im[i]) == 1:
+                            cnim_end = cnim+n_im[i][0]
+                        elif len(n_im[i]) == 2:
+                            cnim_end = cnim+n_im[i][0]*n_im[i][1]
+                        else:
+                            cnim_end = 0
+
+                        olf = plt.figure()
+                        oax = olf.gca()
+                        oax.plot(1000 * v_x_o[cnim:cnim_end], 1000 * v_y_o[cnim:cnim_end], 'x-')
+                        draw_rectangle(v_x_o, v_y_o, cnim, cnim_end, int(rot), mag[i], oax)
+
+                        oax.set_aspect('equal')
+                        oax.set_xlabel('X [mm]')
+                        oax.set_ylabel('Y [mm]')
+                        draw_figure(ol_window['olCanvas'+str(i)].TKCanvas, olf)
+
+                        cnim = cnim_end
 
         else:
-            Sg.Popup('Input error', 'The # of images and the magnification of each series must be entered separated by '
+            sg.Popup('Input error', 'The # of images and the magnification of each series must be entered separated by '
                                     'a comma')
     else:
-        Sg.Popup('Input error', 'Tilt or rotation of first and last point of a serie are not equal.\n'
+        sg.Popup('Input error', 'Tilt or rotation of first and last point of a serie are not equal.\n'
                                 'Please enter valid initial points')
 window.close()
