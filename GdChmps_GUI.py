@@ -71,35 +71,9 @@ def open_ol_window(ntabs):
     return windw
 
 
-# column1 = [
-#     [sg.Text('Set beam shift to 0 before taking initial and end points.')],
-#     [sg.Text('Tilt and Rotation must not change between the initial and final points of a serie.')],
-#     [sg.Text('Initial points:', tooltip='Point Lists are saved in C:\\ProgramData\\Carl Zeiss\\SmartSEM\\User\\sem\n'
-#                                         'A line scan must be defined by two consecutive points\n'
-#                                         'A map must be defined by 4 consecutive points',
-#              size=(20, 1))],
-#     [sg.Input(key='ptInit', size=(60, 1)), sg.FileBrowse(target='ptInit', size=(6, 1),
-#                                                          initial_folder='C:/ProgramData/Carl Zeiss/SmartSEM/User/sem')],
-#     [sg.Text('# images of each series: ',
-#              tooltip='Enter the number of images of each series as an integer separated by a comma\n'
-#                      'e.g. 2,3,4 for 3 series of 2, 3, and 4 images respectively.\n'
-#                      'For maps, enter m, the # of images in the x-axis, and n, the # of images in the y-axis, as mxn',
-#              size=(20, 1)), sg.Input(key='n_im')],
-#     [sg.Text('Magnification of each series: ', tooltip='Enter the magnification of each series separated by a comma\n'
-#                                                        'e.g. 1000,3000,2000 for 3 series with mag = 1k, 3k, and 2k '
-#                                                        'respectively.',
-#              size=(20, 1)), sg.Input(key='mag')],
-#     [sg.Text('Scan rot :', tooltip='Enter the scan rotation value',
-#              size=(20, 1)), sg.Input(key='rot', default_text='0')],
-#     [sg.Checkbox('Display overlap information', default=False, key='ol_cb')],
-#     [sg.Text('Save as: ', size=(20, 1))],
-#     [sg.Input(key='saveName', size=(58, 1)), sg.SaveAs(target='saveName', size=(8, 1))],
-#     [sg.Text('In Stage Points List > On Goto, check Move XY Only.')],
-#     [sg.Submit('Generate point list'), sg.Exit()]
-# ]
 column1 = [
     [sg.Text('Set beam shift to 0 before taking initial and end points.')],
-    [sg.Text('Tilt and Rotation must not change between the initial and final points of a serie.')],
+    [sg.Text('Tilt and Rotation must not change between points.')],
     [sg.Text('Initial points:', tooltip='Point Lists are saved in C:\\ProgramData\\Carl Zeiss\\SmartSEM\\User\\sem\n'
                                         'A line scan must be defined by two consecutive points\n'
                                         'A map must be defined by 4 consecutive points',
@@ -107,19 +81,22 @@ column1 = [
     [sg.Input(key='ptInit', size=(60, 1)),
      sg.FileBrowse(target='ptInit',
                    size=(6, 1),
-                   initial_folder='D:/_Ressources/SEM/GdChamps_v1.x/py/IN_2_4_2.TXT')],
+                   initial_folder='C:/ProgramData/Carl Zeiss/SmartSEM/User/sem')],
     [sg.Text('# images of each series: ',
              tooltip='Enter the number of images of each series as an integer separated by a comma\n'
                      'e.g. 2,3,4 for 3 series of 2, 3, and 4 images respectively.\n'
-                     'For maps, enter m, the # of images in the x-axis, and n, the # of images in the y-axis, as mxn',
-             size=(20, 1)), sg.Input(key='n_im',
-                                     default_text='5,5x4,8')],
-    [sg.Text('Magnification of each series: ', tooltip='Enter the magnification of each series separated by a comma\n'
-                                                       'e.g. 1000,3000,2000 for 3 series with mag = 1k, 3k, and 2k '
-                                                       'respectively.',
-             size=(20, 1)), sg.Input(key='mag', default_text='10,10,10')],
+                     'For maps, enter m, the # of images in the x-axis, and n, the # '
+                     'of images in the y-axis, as mxn\n'
+                     'e.g. 2,3x4,5 for a series of 2 images, a map of 3 by 4 images,'
+                     ' and a series of 5 images',
+             size=(20, 1)), sg.Input(key='n_im')],
+    [sg.Text('Magnification of each series: ',
+             tooltip='Enter the magnification of each series separated by a comma\n'
+                     'e.g. 1000,3000,2000 for 3 series with mag = 1k, 3k, and 2k '
+                     'respectively.',
+             size=(20, 1)), sg.Input(key='mag')],
     [sg.Text('Scan rot :', tooltip='Enter the scan rotation value',
-             size=(20, 1)), sg.Input(key='rot', default_text='60')],
+             size=(20, 1)), sg.Input(key='rot', default_text='0')],
     [sg.Checkbox('Display overlap information', default=False, key='ol_cb')],
     [sg.Text('Save as: ', size=(20, 1))],
     [sg.Input(key='saveName', size=(58, 1)), sg.SaveAs(target='saveName', size=(8, 1))],
@@ -291,6 +268,14 @@ while True:
                                         int(rot))
                         l_ol.append([l_olx, l_oly])
 
+                    if i > 0:
+                        ax1.arrow(1000 * v_x_o[lv_x_o1 - 1],
+                                  1000 * v_y_o[lv_x_o1 - 1],
+                                  1000 * (v_x_o[lv_x_o1] - v_x_o[lv_x_o1 - 1]),
+                                  1000 * (v_y_o[lv_x_o1] - v_y_o[lv_x_o1 - 1]),
+                                  head_width=2, head_length=3,
+                                  fc='k', ec='k', length_includes_head=True)
+
                 str_ol = ''
                 c = 0
                 for i in range(0, len(n_im)):
@@ -315,10 +300,6 @@ while True:
                                      + '{:.6f},{:.8f}'.format(mag[i], v_wd_o[c])
                                      + '\n')
                             c = c + 1
-
-                    # if i > 0:
-                    #     ax1.arrow(v_x_f[i-1], v_y_f[i-1], v_x_i[i]-v_x_f[i-1], v_y_i[i]-v_y_f[i-1],
-                    #               head_width=2, head_length=3, fc='k', ec='k', length_includes_head=True)
 
                 pl.write('S' + str(totim + 1).zfill(4) + 'end'
                          + ',{:.32f},{:.32f},{:.32f}'.format(v_x_o[-1], v_y_o[-1], v_z_o[-1])
