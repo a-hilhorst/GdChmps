@@ -1,4 +1,0 @@
-Leo Points List
-Absolute
-Label,X,Y,Z,T,R,M,Mag,WD
-20
